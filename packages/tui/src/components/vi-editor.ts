@@ -1,6 +1,6 @@
-import { Editor } from "./editor.js";
-import type { EditorTheme, EditorOptions } from "./editor.js";
 import type { TUI } from "../tui.js";
+import type { EditorOptions, EditorTheme } from "./editor.js";
+import { Editor } from "./editor.js";
 
 type ViMode = "insert" | "normal";
 
@@ -110,19 +110,19 @@ export class ViEditor extends Editor {
 			return "consumed";
 		}
 		if (cmd === "w") {
-			this.repeat(count, () => this.moveWordForwards());
+			this.repeat(count, () => this.viMoveWordForward(false));
 			return "consumed";
 		}
 		if (cmd === "b") {
-			this.repeat(count, () => this.moveWordBackwards());
+			this.repeat(count, () => this.viMoveWordBackward(false));
 			return "consumed";
 		}
 		if (cmd === "W") {
-			this.repeat(count, () => this.moveWordForwards());
+			this.repeat(count, () => this.viMoveWordForward(true));
 			return "consumed";
 		}
 		if (cmd === "B") {
-			this.repeat(count, () => this.moveWordBackwards());
+			this.repeat(count, () => this.viMoveWordBackward(true));
 			return "consumed";
 		}
 		if (cmd === "e") {
@@ -160,9 +160,7 @@ export class ViEditor extends Editor {
 		if (cmd === "f" || cmd === "F" || cmd === "t" || cmd === "T") {
 			if (rest.length < 2) return "incomplete";
 			const ch = rest[1]!;
-			this.repeat(count, () =>
-				this.findChar(ch, cmd === "f" || cmd === "t", cmd === "t" || cmd === "T"),
-			);
+			this.repeat(count, () => this.findChar(ch, cmd === "f" || cmd === "t", cmd === "t" || cmd === "T"));
 			return "consumed";
 		}
 
@@ -349,27 +347,22 @@ export class ViEditor extends Editor {
 		} else if (motion === "k") {
 			this.repeat(count, () => this.moveCursor(-1, 0));
 		} else if (motion === "w") {
-			this.repeat(count, () => this.moveWordForwards());
+			this.repeat(count, () => this.viMoveWordForward(false));
 		} else if (motion === "b") {
-			this.repeat(count, () => this.moveWordBackwards());
+			this.repeat(count, () => this.viMoveWordBackward(false));
 		} else if (motion === "e") {
 			this.repeat(count, () => this.moveToWordEnd());
 		} else if (motion === "W") {
-			this.repeat(count, () => this.moveWordForwards());
+			this.repeat(count, () => this.viMoveWordForward(true));
 		} else if (motion === "B") {
-			this.repeat(count, () => this.moveWordBackwards());
+			this.repeat(count, () => this.viMoveWordBackward(true));
 		} else if (motion === "0") {
 			this.moveToLineStart();
 		} else if (motion === "^") {
 			this.moveToFirstNonBlank();
 		} else if (motion === "$") {
 			this.moveToLineEnd();
-		} else if (
-			motion === "f" ||
-			motion === "F" ||
-			motion === "t" ||
-			motion === "T"
-		) {
+		} else if (motion === "f" || motion === "F" || motion === "t" || motion === "T") {
 			if (motionStr.length < 2) return "incomplete";
 			const ch = motionStr[1]!;
 			this.findChar(ch, motion === "f" || motion === "t", motion === "t" || motion === "T");
@@ -383,11 +376,7 @@ export class ViEditor extends Editor {
 		return this.applyOperatorRange(op, startLine, startCol);
 	}
 
-	private applyOperatorRange(
-		op: "d" | "c" | "y",
-		startLine: number,
-		startCol: number,
-	): "consumed" {
+	private applyOperatorRange(op: "d" | "c" | "y", startLine: number, startCol: number): "consumed" {
 		const { line: endLine, col: endCol } = this.getCursor();
 
 		// Determine direction
@@ -442,11 +431,7 @@ export class ViEditor extends Editor {
 		return "consumed";
 	}
 
-	private executeTextObject(
-		op: "d" | "c" | "y",
-		inner: boolean,
-		obj: string,
-	): "consumed" | "incomplete" | "unknown" {
+	private executeTextObject(op: "d" | "c" | "y", inner: boolean, obj: string): "consumed" | "incomplete" | "unknown" {
 		const { line, col } = this.getCursor();
 		const currentLine = this.state.lines[line] || "";
 
@@ -560,6 +545,77 @@ export class ViEditor extends Editor {
 			line.slice(0, this.state.cursorCol) + toggled + line.slice(this.state.cursorCol + 1);
 		this.setCursorCol(Math.min(this.state.cursorCol + 1, line.length - 1));
 		if (this.onChange) this.onChange(this.getText());
+	}
+
+	/**
+	 * Vim-style word forward: skip current word, then skip whitespace to land at
+	 * the start of the next word. `bigWord` = treat only whitespace as boundary (W).
+	 */
+	private viMoveWordForward(bigWord: boolean): void {
+		const line = this.state.lines[this.state.cursorLine] || "";
+		let col = this.state.cursorCol;
+
+		const isWs = (ch: string) => ch === " " || ch === "\t";
+		const isWordChar = (ch: string) => bigWord ? !isWs(ch) : /\w/.test(ch);
+
+		if (col >= line.length) {
+			// Move to next line if available
+			if (this.state.cursorLine < this.state.lines.length - 1) {
+				this.state.cursorLine++;
+				this.setCursorCol(0);
+			}
+			return;
+		}
+
+		// Skip current run (word chars or punctuation)
+		if (isWordChar(line[col]!)) {
+			while (col < line.length && isWordChar(line[col]!)) col++;
+		} else if (!isWs(line[col]!)) {
+			// punctuation run
+			while (col < line.length && !isWordChar(line[col]!) && !isWs(line[col]!)) col++;
+		}
+
+		// Skip whitespace
+		while (col < line.length && isWs(line[col]!)) col++;
+
+		this.setCursorCol(col);
+	}
+
+	/**
+	 * Vim-style word backward: land at start of previous word.
+	 * `bigWord` = treat only whitespace as boundary (B).
+	 */
+	private viMoveWordBackward(bigWord: boolean): void {
+		const line = this.state.lines[this.state.cursorLine] || "";
+		let col = this.state.cursorCol;
+
+		const isWs = (ch: string) => ch === " " || ch === "\t";
+		const isWordChar = (ch: string) => bigWord ? !isWs(ch) : /\w/.test(ch);
+
+		if (col === 0) {
+			if (this.state.cursorLine > 0) {
+				this.state.cursorLine--;
+				const prevLine = this.state.lines[this.state.cursorLine] || "";
+				this.setCursorCol(prevLine.length);
+			}
+			return;
+		}
+
+		// Step back one
+		col--;
+
+		// Skip whitespace
+		while (col > 0 && isWs(line[col]!)) col--;
+
+		// Skip current run backward
+		if (isWordChar(line[col]!)) {
+			while (col > 0 && isWordChar(line[col - 1]!)) col--;
+		} else {
+			// punctuation run
+			while (col > 0 && !isWordChar(line[col - 1]!) && !isWs(line[col - 1]!)) col--;
+		}
+
+		this.setCursorCol(col);
 	}
 
 	private isWordBoundary(ch: string): boolean {
