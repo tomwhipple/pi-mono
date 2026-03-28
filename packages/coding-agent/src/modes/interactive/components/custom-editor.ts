@@ -1,10 +1,10 @@
-import { Editor, type EditorOptions, type EditorTheme, type TUI } from "@mariozechner/pi-tui";
+import { Editor, ViEditor, type EditorOptions, type EditorTheme, type TUI } from "@mariozechner/pi-tui";
 import type { AppKeybinding, KeybindingsManager } from "../../../core/keybindings.js";
 
 /**
  * Custom editor that handles app-level keybindings for coding-agent.
  */
-export class CustomEditor extends Editor {
+export class CustomEditor extends ViEditor {
 	private keybindings: KeybindingsManager;
 	public actionHandlers: Map<AppKeybinding, () => void> = new Map();
 
@@ -44,6 +44,11 @@ export class CustomEditor extends Editor {
 		// Escape/interrupt - only if autocomplete is NOT active
 		if (this.keybindings.matches(data, "app.interrupt")) {
 			if (!this.isShowingAutocomplete()) {
+				// In vi insert mode, Escape switches to normal mode — don't fire interrupt handler yet
+				if (this.getViMode() === "insert") {
+					super.handleInput(data);
+					return;
+				}
 				// Use dynamic onEscape if set, otherwise registered handler
 				const handler = this.onEscape ?? this.actionHandlers.get("app.interrupt");
 				if (handler) {
