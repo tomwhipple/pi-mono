@@ -154,9 +154,10 @@ describe("ViEditor", () => {
 			typeText(editor, "one two three");
 			editor.handleInput("\x1b");
 			editor.handleInput("0");
+			// 1w: "one " → col 4 (start of "two")
+			// 2w: "two " → col 8 (start of "three")
 			editor.handleInput("2");
 			editor.handleInput("w");
-			// after 2w from col 0: "one " (4 chars) → "two " (4 chars) → col 8 = start of "three"
 			assert.strictEqual(editor.getCursor().col, 8);
 		});
 	});
@@ -165,10 +166,10 @@ describe("ViEditor", () => {
 		it("x deletes character under cursor", () => {
 			const editor = createViEditor();
 			typeText(editor, "hello");
-			editor.handleInput("\x1b");
-			editor.handleInput("0");
-			editor.handleInput("x"); // delete 'h'
-			assert.strictEqual(editor.getText(), "ello");
+			editor.handleInput("\x1b"); // normal, col 4
+			editor.handleInput("x");    // delete 'o', clamp to col 3
+			assert.strictEqual(editor.getText(), "hell");
+			assert.strictEqual(editor.getCursor().col, 3);
 		});
 
 		it("X deletes character before cursor", () => {

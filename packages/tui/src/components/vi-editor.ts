@@ -213,6 +213,7 @@ export class ViEditor extends Editor {
 					this.handleForwardDelete();
 				}
 			});
+			this.clampNormalCursor();
 			return "consumed";
 		}
 		if (cmd === "X") {
@@ -222,6 +223,7 @@ export class ViEditor extends Editor {
 					this.handleBackspace();
 				}
 			});
+			this.clampNormalCursor();
 			return "consumed";
 		}
 
@@ -233,6 +235,7 @@ export class ViEditor extends Editor {
 			this.handleForwardDelete();
 			this.insertCharacter(ch);
 			this.moveCursor(0, -1);
+			this.clampNormalCursor();
 			return "consumed";
 		}
 
@@ -271,6 +274,7 @@ export class ViEditor extends Editor {
 		if (cmd === "D") {
 			this.pushUndoSnapshot();
 			this.deleteToEndOfLine();
+			this.clampNormalCursor();
 			return "consumed";
 		}
 		if (cmd === "C") {
@@ -424,6 +428,9 @@ export class ViEditor extends Editor {
 
 		if (op === "c") {
 			this.viMode = "insert";
+		} else {
+			// In normal mode after d/y, cursor must be on a valid character
+			this.clampNormalCursor();
 		}
 
 		if (this.onChange) this.onChange(this.getText());
@@ -543,7 +550,9 @@ export class ViEditor extends Editor {
 		const toggled = ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase();
 		this.state.lines[this.state.cursorLine] =
 			line.slice(0, this.state.cursorCol) + toggled + line.slice(this.state.cursorCol + 1);
-		this.setCursorCol(Math.min(this.state.cursorCol + 1, line.length - 1));
+		// Advance like vim, clamped to last char
+		const newLine = this.state.lines[this.state.cursorLine] || "";
+		this.setCursorCol(Math.min(this.state.cursorCol + 1, Math.max(0, newLine.length - 1)));
 		if (this.onChange) this.onChange(this.getText());
 	}
 
@@ -551,6 +560,17 @@ export class ViEditor extends Editor {
 	 * Vim-style word forward: skip current word, then skip whitespace to land at
 	 * the start of the next word. `bigWord` = treat only whitespace as boundary (W).
 	 */
+	/**
+	 * In normal mode the cursor must sit on a character, never past the last one.
+	 * Call this after any edit that stays in normal mode.
+	 */
+	private clampNormalCursor(): void {
+		const line = this.state.lines[this.state.cursorLine] || "";
+		if (line.length > 0 && this.state.cursorCol >= line.length) {
+			this.setCursorCol(line.length - 1);
+		}
+	}
+
 	private viMoveWordForward(bigWord: boolean): void {
 		const line = this.state.lines[this.state.cursorLine] || "";
 		let col = this.state.cursorCol;
