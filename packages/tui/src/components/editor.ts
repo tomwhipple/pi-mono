@@ -215,7 +215,7 @@ const SLASH_COMMAND_SELECT_LIST_LAYOUT: SelectListLayoutOptions = {
 const ATTACHMENT_AUTOCOMPLETE_DEBOUNCE_MS = 20;
 
 export class Editor implements Component, Focusable {
-	private state: EditorState = {
+	protected state: EditorState = {
 		lines: [""],
 		cursorLine: 0,
 		cursorCol: 0,
@@ -969,7 +969,7 @@ export class Editor implements Component, Focusable {
 	 * Does not push undo snapshots or trigger autocomplete - caller is responsible.
 	 * Normalizes line endings and calls onChange once at the end.
 	 */
-	private insertTextAtCursorInternal(text: string): void {
+	protected insertTextAtCursorInternal(text: string): void {
 		if (!text) return;
 
 		// Normalize line endings and tabs
@@ -1013,7 +1013,7 @@ export class Editor implements Component, Focusable {
 	}
 
 	// All the editor methods from before...
-	private insertCharacter(char: string, skipUndoCoalescing?: boolean): void {
+	protected insertCharacter(char: string, skipUndoCoalescing?: boolean): void {
 		this.historyIndex = -1; // Exit history browsing mode
 
 		// Undo coalescing (fish-style):
@@ -1130,7 +1130,7 @@ export class Editor implements Component, Focusable {
 		this.insertTextAtCursorInternal(filteredText);
 	}
 
-	private addNewLine(): void {
+	protected addNewLine(): void {
 		this.cancelAutocomplete();
 		this.historyIndex = -1; // Exit history browsing mode
 		this.lastAction = null;
@@ -1182,7 +1182,7 @@ export class Editor implements Component, Focusable {
 		if (this.onSubmit) this.onSubmit(result);
 	}
 
-	private handleBackspace(): void {
+	protected handleBackspace(): void {
 		this.historyIndex = -1; // Exit history browsing mode
 		this.lastAction = null;
 
@@ -1243,7 +1243,7 @@ export class Editor implements Component, Focusable {
 	 * Set cursor column and clear preferredVisualCol.
 	 * Use this for all non-vertical cursor movements to reset sticky column behavior.
 	 */
-	private setCursorCol(col: number): void {
+	protected setCursorCol(col: number): void {
 		this.state.cursorCol = col;
 		this.preferredVisualCol = null;
 	}
@@ -1355,18 +1355,18 @@ export class Editor implements Component, Focusable {
 		return result;
 	}
 
-	private moveToLineStart(): void {
+	protected moveToLineStart(): void {
 		this.lastAction = null;
 		this.setCursorCol(0);
 	}
 
-	private moveToLineEnd(): void {
+	protected moveToLineEnd(): void {
 		this.lastAction = null;
 		const currentLine = this.state.lines[this.state.cursorLine] || "";
 		this.setCursorCol(currentLine.length);
 	}
 
-	private deleteToStartOfLine(): void {
+	protected deleteToStartOfLine(): void {
 		this.historyIndex = -1; // Exit history browsing mode
 
 		const currentLine = this.state.lines[this.state.cursorLine] || "";
@@ -1401,7 +1401,7 @@ export class Editor implements Component, Focusable {
 		}
 	}
 
-	private deleteToEndOfLine(): void {
+	protected deleteToEndOfLine(): void {
 		this.historyIndex = -1; // Exit history browsing mode
 
 		const currentLine = this.state.lines[this.state.cursorLine] || "";
@@ -1433,7 +1433,7 @@ export class Editor implements Component, Focusable {
 		}
 	}
 
-	private deleteWordBackwards(): void {
+	protected deleteWordBackwards(): void {
 		this.historyIndex = -1; // Exit history browsing mode
 
 		const currentLine = this.state.lines[this.state.cursorLine] || "";
@@ -1478,7 +1478,7 @@ export class Editor implements Component, Focusable {
 		}
 	}
 
-	private deleteWordForward(): void {
+	protected deleteWordForward(): void {
 		this.historyIndex = -1; // Exit history browsing mode
 
 		const currentLine = this.state.lines[this.state.cursorLine] || "";
@@ -1520,7 +1520,7 @@ export class Editor implements Component, Focusable {
 		}
 	}
 
-	private handleForwardDelete(): void {
+	protected handleForwardDelete(): void {
 		this.historyIndex = -1; // Exit history browsing mode
 		this.lastAction = null;
 
@@ -1628,7 +1628,7 @@ export class Editor implements Component, Focusable {
 		return visualLines.length - 1;
 	}
 
-	private moveCursor(deltaLine: number, deltaCol: number): void {
+	protected moveCursor(deltaLine: number, deltaCol: number): void {
 		this.lastAction = null;
 		const visualLines = this.buildVisualLineMap(this.lastWidth);
 		const currentVisualLine = this.findCurrentVisualLine(visualLines);
@@ -1695,7 +1695,7 @@ export class Editor implements Component, Focusable {
 		this.moveToVisualLine(visualLines, currentVisualLine, targetVisualLine);
 	}
 
-	private moveWordBackwards(): void {
+	protected moveWordBackwards(): void {
 		this.lastAction = null;
 		const currentLine = this.state.lines[this.state.cursorLine] || "";
 
@@ -1873,11 +1873,11 @@ export class Editor implements Component, Focusable {
 		}
 	}
 
-	private pushUndoSnapshot(): void {
+	protected pushUndoSnapshot(): void {
 		this.undoStack.push(this.state);
 	}
 
-	private undo(): void {
+	protected undo(): void {
 		this.historyIndex = -1; // Exit history browsing mode
 		const snapshot = this.undoStack.pop();
 		if (!snapshot) return;
@@ -1923,7 +1923,7 @@ export class Editor implements Component, Focusable {
 		// No match found - cursor stays in place
 	}
 
-	private moveWordForwards(): void {
+	protected moveWordForwards(): void {
 		this.lastAction = null;
 		const currentLine = this.state.lines[this.state.cursorLine] || "";
 
